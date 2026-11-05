@@ -1,0 +1,41 @@
+# Métadonnées d'origine du lab, hors du format .layers
+id: docker-getting-started-lab
+title: "Docker, couche par couche — de l'image au stack Compose"
+track: docker
+type: lab
+level: debutant
+duration: 3h30
+lang: fr
+version: 1.0.0
+source:
+  kind: adaptation
+  ref: "Docker Docs — Get started / Docker workshop (parties 1 à 9)"
+  note: "Contenu réécrit et restructuré pour byte_layers ; app d'exemple docker/getting-started-app"
+prerequisites:
+  - linux.shell.basics
+  - git.clone
+setup:
+  - Docker Engine ou Docker Desktop récent (Compose v2 inclus)
+  - Git
+  - Un éditeur (VS Code recommandé)
+  - Un compte Docker Hub (couche 03)
+concepts:
+  - { id: docker.container.definition, bloom: comprendre }
+  - { id: docker.image.definition, bloom: comprendre }
+  - { id: docker.dockerfile.basics, bloom: appliquer }
+  - { id: docker.cli.build-run, bloom: appliquer }
+  - { id: docker.network.port-publishing, bloom: comprendre }
+  - { id: docker.cli.lifecycle, bloom: appliquer }
+  - { id: docker.registry.tag-push, bloom: appliquer }
+  - { id: docker.storage.writable-layer, bloom: analyser }
+  - { id: docker.storage.named-volume, bloom: appliquer }
+  - { id: docker.storage.bind-mount, bloom: appliquer }
+  - { id: docker.storage.volume-vs-bind, bloom: evaluer }
+  - { id: docker.network.user-defined-dns, bloom: analyser }
+  - { id: docker.config.env-vars-secrets, bloom: evaluer }
+  - { id: docker.compose.basics, bloom: appliquer }
+  - { id: docker.image.layer-cache, bloom: analyser }
+  - { id: docker.image.multi-stage, bloom: creer }
+next:
+  - docker-compose-like-a-pro
+  - kubernetes-first-steps
