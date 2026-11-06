@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Traefik publie ses métriques sur son port d'administration
+  - job_name: traefik
+    static_configs:
+      - targets: ["traefik:8080"]
+
+  # PetClinic, par l'agent JMX exporter
+  - job_name: petclinic
+    static_configs:
+      - labels:
+          # un label de plus, qu'attend le dashboard JVM importé dans Grafana
+          application: petclinic
+        targets: ["petclinic:9404"]
+
+  # cAdvisor : métriques par conteneur (CPU, mémoire, réseau, FS)
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Node Exporter : métriques de l'hôte (CPU, mémoire, disque, réseau)
+  - job_name: node
+    static_configs:
+      - targets: ["node_exporter:9100"]

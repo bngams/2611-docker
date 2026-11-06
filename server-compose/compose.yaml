@@ -1,0 +1,5 @@
+name: layers-l8-web
+include:
+  - app1/compose.yaml
+  - app2/compose.yaml
+  - traefik/compose.yaml

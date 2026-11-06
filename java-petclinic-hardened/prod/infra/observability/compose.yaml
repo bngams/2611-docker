@@ -1,0 +1,178 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  logging: *default-logging
+
+services:
+  loki:
+    <<: *hardening
+    image: grafana/loki:3.7.9
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - monitoring
+
+  alloy:
+    <<: *hardening
+    image: grafana/alloy:v1.21.3
+    command: ["run", "--storage.path=/alloy-data", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/alloy-data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+
+  prometheus:
+    <<: *hardening
+    image: prom/prometheus:v3.16.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=2d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - monitoring
+      - proxy
+
+  grafana:
+    <<: *hardening
+    image: grafana/grafana:13.2.5
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SERVER_ROOT_URL: http://localhost:28402/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Système de fichiers en lecture seule : Grafana ne doit pas tenter de mettre à jour
+      # ses plugins embarqués (loki, prometheus…), sinon il les désenregistre puis échoue
+      GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "false"
+    secrets:
+      - grafana_admin_password
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/grafana/api/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+      start_interval: 3s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.grafana.rule=PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.entrypoints=web
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    depends_on:
+      - loki
+      - prometheus
+    networks:
+      - monitoring
+      - proxy
+
+
+  # add cAdvisor service for container monitoring
+  cadvisor:
+    <<: *hardening
+    # fix latest version for cAdvisor
+    image: gcr.io/cadvisor/cadvisor:latest
+    ports:
+      - "0.0.0.0:28403:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - monitoring
+
+  # add Node Exporter service for host monitoring
+  node_exporter:
+    <<: *hardening
+    image: prom/node-exporter:v1.6.1
+    ports:
+      - "0.0.0.0:28404:9100"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    name: layers-l10-monitoring
+    internal: true
+  proxy:
+    name: layers-l10-proxy
+
+volumes:
+  loki_data:
+    name: layers-l10-loki-data
+  alloy_data:
+    name: layers-l10-alloy-data
+  prometheus_data:
+    name: layers-l10-prometheus-data
+  grafana_data:
+    name: layers-l10-grafana-data
+
+secrets:
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt

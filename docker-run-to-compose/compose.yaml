@@ -1,0 +1,54 @@
+name: layers-l8-web-app1
+services:
+  app1:
+    build: .
+    image: layers-l8-web-app1
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_NAME: app1db
+      DB_USER: app1
+      DB_PASSWORD: app1-dev
+    ports:
+      - 0.0.0.0:28386:3000
+    networks:
+      - app1_net
+      - public_net
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root-dev
+      MYSQL_DATABASE: app1db
+      MYSQL_USER: app1
+      MYSQL_PASSWORD: app1-dev
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app1_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  adminer:
+    image: adminer:latest
+    profiles:
+      - dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports:
+      - 0.0.0.0:28387:8080
+    networks:
+      - app1_net
+volumes:
+  db_data:
+networks:
+  app1_net:
+  public_net:
+    name: layers-l8-public
+    external: true

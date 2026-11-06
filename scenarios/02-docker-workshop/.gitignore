@@ -1,0 +1,5 @@
+getting-started-app/
+atelier/
+.DS_Store
+.env
+db_password.txt
